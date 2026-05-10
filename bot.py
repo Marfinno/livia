@@ -79,6 +79,14 @@ log = logging.getLogger("VIPBot")
 # BANCO DE DADOS
 # ──────────────────────────────────────────────
 def get_connection() -> sqlite3.Connection:
+    global DATABASE_PATH
+    db_dir = os.path.dirname(DATABASE_PATH)
+    if db_dir:
+        try:
+            os.makedirs(db_dir, exist_ok=True)
+        except Exception as e:
+            log.error("Erro ao criar dir %s: %s. Usando DB local.", db_dir, e)
+            DATABASE_PATH = "vip_bot_fallback.db"
     conn = sqlite3.connect(DATABASE_PATH)
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA journal_mode=WAL")
@@ -689,13 +697,16 @@ async def lifespan(app: FastAPI):
     if USE_WEBHOOK and BASE_URL:
         # ── Modo WEBHOOK (Railway / VPS) ──
         webhook_url = f"{BASE_URL}{TG_WEBHOOK_PATH}"
-        await bot.set_webhook(
-            url=webhook_url,
-            secret_token=WEBHOOK_SECRET or None,
-            allowed_updates=["message", "callback_query"],
-            drop_pending_updates=True,
-        )
-        log.info("🔗 Webhook do Telegram registrado: %s", webhook_url)
+        try:
+            await bot.set_webhook(
+                url=webhook_url,
+                secret_token=WEBHOOK_SECRET or None,
+                allowed_updates=["message", "callback_query"],
+                drop_pending_updates=True,
+            )
+            log.info("🔗 Webhook do Telegram registrado: %s", webhook_url)
+        except Exception as e:
+            log.error("❌ Falha ao registrar webhook: %s", e)
     else:
         # ── Modo POLLING (desenvolvimento local sem domínio) ──
         log.info("🔄 BASE_URL não configurada – usando polling local...")
