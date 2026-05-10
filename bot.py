@@ -442,7 +442,9 @@ async def cb_check_payment(cq: CallbackQuery):
 # HANDLERS – ADMIN
 # ──────────────────────────────────────────────
 def is_admin(msg: Message) -> bool:
-    return msg.from_user.id == ADMIN_ID
+    # Quando clicamos num botão, a `msg` passada é a do bot, então from_user é o bot.
+    # Mas o chat.id continua sendo o ID do administrador.
+    return msg.chat.id == ADMIN_ID
 
 @router.message(Command("admin"))
 async def cmd_admin(msg: Message):
