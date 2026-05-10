@@ -53,7 +53,10 @@ ADMIN_ID         = int(os.getenv("ADMIN_ID", "0"))
 VEXOPAY_API_KEY  = os.getenv("VEXOPAY_API_KEY", "")
 VEXOPAY_SECRET   = os.getenv("VEXOPAY_SECRET", "")
 WEBHOOK_SECRET   = os.getenv("WEBHOOK_SECRET", "")
-BASE_URL         = os.getenv("BASE_URL", "").rstrip("/")
+BASE_URL = os.getenv("BASE_URL") or os.getenv("RAILWAY_PUBLIC_DOMAIN")
+if BASE_URL and not BASE_URL.startswith("http"):
+    BASE_URL = f"https://{BASE_URL}"
+BASE_URL = (BASE_URL or "").rstrip("/")
 DATABASE_PATH    = os.getenv("DATABASE_PATH", "vip_bot.db")
 PORT             = int(os.getenv("PORT", "8000"))   # Railway injeta PORT
 USE_WEBHOOK      = os.getenv("USE_WEBHOOK", "true").lower() == "true"
