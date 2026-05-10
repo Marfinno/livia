@@ -28,30 +28,15 @@ git push -u origin main
 
 ### 3. Configure as variáveis de ambiente
 
-No Railway, vá em **Variables** e adicione uma por uma:
+No Railway, vá em **Variables**. Em vez de adicionar uma por uma, você pode clicar em **"Raw Editor"** ou **"Bulk Import"** e colar o conteúdo do seu arquivo `.env` local.
 
-| Variável | Valor |
-|---|---|
-| `BOT_TOKEN` | Token do @BotFather |
-| `ADMIN_ID` | Seu ID numérico do Telegram |
-| `VEXOPAY_API_KEY` | Chave da VexoPay |
-| `VEXOPAY_SECRET` | Secret da VexoPay |
-| `WEBHOOK_SECRET` | Qualquer string forte aleatória |
-| `BASE_URL` | *preencher depois (passo 5)* |
-| `USE_WEBHOOK` | `true` |
-| `DATABASE_PATH` | `vip_bot.db` |
-
-> `PORT` **não precisa adicionar** — o Railway injeta automaticamente.
+> `PORT` e `DATABASE_PATH` já estão otimizados no `railway.json` que eu adicionei para você.
 
 ---
 
-### 4. Configure o start command
+### 4. Deploy Automático
 
-Em **Settings → Deploy → Start Command**:
-
-```
-python bot.py
-```
+Eu adicionei um arquivo `railway.json` ao repositório. Isso significa que o Railway agora sabe exatamente como rodar seu bot (`python bot.py`) automaticamente. Você não precisa configurar o "Start Command" manualmente.
 
 ---
 
