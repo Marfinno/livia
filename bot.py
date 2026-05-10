@@ -58,7 +58,7 @@ if BASE_URL and not BASE_URL.startswith("http"):
     BASE_URL = f"https://{BASE_URL}"
 BASE_URL = (BASE_URL or "").rstrip("/")
 DATABASE_PATH    = os.getenv("DATABASE_PATH", "vip_bot.db")
-PORT             = int(os.getenv("PORT", "8000"))   # Railway injeta PORT
+PORT             = int(os.getenv("PORT", "8080"))   # Railway injeta PORT
 USE_WEBHOOK      = os.getenv("USE_WEBHOOK", "true").lower() == "true"
 VEXOPAY_BASE_URL = "https://www.vexopay.com.br"
 
