@@ -60,7 +60,7 @@ BASE_URL = (BASE_URL or "").rstrip("/")
 DATABASE_PATH    = os.getenv("DATABASE_PATH", "vip_bot.db")
 PORT             = int(os.getenv("PORT", "8000"))   # Railway injeta PORT
 USE_WEBHOOK      = os.getenv("USE_WEBHOOK", "true").lower() == "true"
-VEXOPAY_BASE_URL = "https://api.vexopay.com.br/v1"
+VEXOPAY_BASE_URL = "https://www.vexopay.com.br"
 
 # Caminho que o Telegram vai chamar via POST
 TG_WEBHOOK_PATH = "/telegram/webhook"
@@ -251,27 +251,30 @@ def db_stats() -> dict:
 # ──────────────────────────────────────────────
 async def vexopay_create_pix(amount, customer_name, customer_id, description, payment_id) -> dict:
     headers = {
-        "Authorization": f"Bearer {VEXOPAY_API_KEY}",
+        "ci": VEXOPAY_API_KEY,
+        "cs": VEXOPAY_SECRET,
         "Content-Type": "application/json",
     }
     payload = {
-        "amount": int(amount * 100),
-        "payment_method": "pix",
-        "customer": {"name": customer_name, "external_id": str(customer_id)},
-        "description": description,
-        "metadata": {"telegram_user_id": str(customer_id), "payment_id": str(payment_id)},
-        "notification_url": f"{BASE_URL}/webhook/vexopay",
+        "amount": float(amount),
+        "payerName": customer_name,
+        "payerDocument": "12345678909",
+        "description": description
     }
     try:
         async with aiohttp.ClientSession() as session:
-            async with session.post(f"{VEXOPAY_BASE_URL}/transactions", headers=headers,
+            async with session.post(f"{VEXOPAY_BASE_URL}/api/gateway/pix-create", headers=headers,
                                     json=payload, timeout=aiohttp.ClientTimeout(total=15)) as resp:
                 data = await resp.json()
-                if resp.status in (200, 201):
+                if resp.status in (200, 201) and data.get("success"):
+                    resp_data = data.get("data", {})
+                    b64 = resp_data.get("qrCodeBase64", "")
+                    if "," in b64:
+                        b64 = b64.split(",", 1)[1]
                     return {
-                        "transaction_id": data.get("id", str(uuid.uuid4())),
-                        "pix_copy_paste": data.get("pix", {}).get("copy_paste", ""),
-                        "qr_code_base64": data.get("pix", {}).get("qr_code", ""),
+                        "transaction_id": resp_data.get("transactionId", str(uuid.uuid4())),
+                        "pix_copy_paste": resp_data.get("copyPaste", ""),
+                        "qr_code_base64": b64,
                     }
                 log.warning("VexoPay status %s – usando simulação", resp.status)
     except Exception as exc:
@@ -758,18 +761,8 @@ async def telegram_webhook(
 # A VexoPay manda aqui quando um PIX é pago
 # ─────────────────────────────────────────────────────────────────────────────
 @app.post("/webhook/vexopay")
-async def vexopay_webhook(
-    request: Request,
-    x_vexopay_signature: Optional[str] = Header(default=None),
-):
+async def vexopay_webhook(request: Request):
     body = await request.body()
-
-    # Validação HMAC (use VEXOPAY_SECRET para isso)
-    if VEXOPAY_SECRET:
-        expected = hmac.new(VEXOPAY_SECRET.encode(), body, hashlib.sha256).hexdigest()
-        if not hmac.compare_digest(expected, x_vexopay_signature or ""):
-            log.warning("⚠️ Assinatura VexoPay inválida!")
-            raise HTTPException(status_code=401, detail="Assinatura inválida")
 
     try:
         payload = json.loads(body)
@@ -778,20 +771,20 @@ async def vexopay_webhook(
 
     log.info("📩 Webhook VexoPay: %s", payload)
 
-    status         = payload.get("status", "").lower()
-    transaction_id = payload.get("transaction_id") or payload.get("id", "")
-    customer_id    = (payload.get("customer_id")
-                      or payload.get("metadata", {}).get("telegram_user_id", ""))
+    event = payload.get("event", "")
+    data = payload.get("data", {})
+    status = data.get("status", "").lower()
+    transaction_id = data.get("transactionId", "")
 
-    if status != "paid":
-        return JSONResponse({"ok": True, "message": f"status '{status}' ignorado"})
+    if event != "payment.completed" or status != "paid":
+        return JSONResponse({"ok": True, "message": f"evento '{event}' status '{status}' ignorado"})
 
     payment = db_mark_payment_paid(transaction_id)
     if not payment:
         log.info("Pagamento %s não encontrado ou já processado.", transaction_id)
-        return JSONResponse({"ok": True, "message": "já processado"})
+        return JSONResponse({"ok": True, "message": "já processado ou não encontrado"})
 
-    telegram_id = int(customer_id or payment["telegram_id"])
+    telegram_id = int(payment["telegram_id"])
 
     # Entrega o conteúdo em background
     asyncio.create_task(deliver_pack(telegram_id, payment["pack_id"]))
